@@ -1,0 +1,1745 @@
+{
+  "updatedAt": "2026-10-26T18:36:11.217Z",
+  "createdAt": "2026-10-02T17:03:51.848Z",
+  "name": "Bloqueio e Desbloqueio com Cache de Token",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "conta",
+              "value": "={{ $json.body.conta }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "acao",
+              "value": "desbloquear",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f3342a43-cf79-494b-ad92-607eb825da18",
+      "name": "Dados (edite aqui)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -336,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst account = $env.PROTRACK_ACCOUNT;\nconst password = $env.PROTRACK_PASSWORD;\nconst time = Math.floor(Date.now()/1000).toString();\nconst md5pass = crypto.createHash('md5').update(password).digest('hex');\nconst signature = crypto.createHash('md5').update(md5pass+time).digest('hex');\nconst d = $input.first().json;\nreturn [{ json: { pt_account: account, pt_time: time, pt_signature: signature, conta: d.conta, acao: d.acao } }];"
+      },
+      "id": "2bdd61fe-7af8-42b7-a60d-208c87566ecd",
+      "name": "Gerar Assinatura",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.protrack365.com/api/authorization",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "account",
+              "value": "={{ $json.pt_account }}"
+            },
+            {
+              "name": "time",
+              "value": "={{ $json.pt_time }}"
+            },
+            {
+              "name": "signature",
+              "value": "={{ $json.pt_signature }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Connection",
+              "value": "close"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "1a551f66-5860-42a7-8c9f-ca9286a7c1e7",
+      "name": "Login Protrack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const login = $input.first().json;\nconst dados = $('Dados (edite aqui)').first().json;\nconst endpoint = dados.acao === 'bloquear' ? 'block' : 'unblock';\nreturn [{ json: {\n  url: `https://api.protrack365.com/api/user/${endpoint}`,\n  access_token: login.record ? login.record.access_token : null,\n  conta: dados.conta,\n  acao: dados.acao\n} }];"
+      },
+      "id": "e28c8dd1-1ecb-40a5-b71c-7b7f7f664ef2",
+      "name": "Montar Acao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $json.access_token }}"
+            },
+            {
+              "name": "account",
+              "value": "={{ $json.conta }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Connection",
+              "value": "close"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "173529e9-b596-4cd2-afd6-ba9e99647662",
+      "name": "Bloquear ou Desbloquear",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -208
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "desbloqueiomanual",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        0
+      ],
+      "id": "04663640-8ae5-4579-928e-4db5b839e2a4",
+      "name": "Webhook",
+      "webhookId": "SUBSTITUIR-POR-ID-PROPRIO"
+    },
+    {
+      "parameters": {
+        "path": "desbloqueioinside",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        -192
+      ],
+      "id": "2984efeb-7ebe-4497-a759-fd9f95999b87",
+      "name": "Webhook1",
+      "webhookId": "SUBSTITUIR-POR-ID-PROPRIO"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        80,
+        -192
+      ],
+      "id": "4cdc51a5-24f3-44eb-8441-4450c2115503",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "html": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Desbloqueio Manual</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <link href=\"https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&display=swap\" rel=\"stylesheet\">\n\n    <style>\n        :root {\n            --teal: #00465d;\n            --orange: #ff4302;\n            --gray: #eeeeee;\n        }\n\n        * { box-sizing: border-box; }\n\n        body {\n            margin: 0;\n            min-height: 100vh;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            background-color: #00465d;\n            background-image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'>  <g fill='none' stroke='%23ffffff'>    <g stroke-opacity='0.08' stroke-width='1'>      <path d='M0 60 H1600'/><path d='M0 130 H1600'/><path d='M0 200 H1600'/><path d='M0 280 H1600'/>      <path d='M0 350 H1600'/><path d='M0 420 H1600'/><path d='M0 500 H1600'/><path d='M0 570 H1600'/>      <path d='M0 640 H1600'/><path d='M0 710 H1600'/><path d='M0 790 H1600'/><path d='M0 860 H1600'/><path d='M0 930 H1600'/>      <path d='M60 0 V1000'/><path d='M140 0 V1000'/><path d='M220 0 V1000'/><path d='M300 0 V1000'/>      <path d='M390 0 V1000'/><path d='M470 0 V1000'/><path d='M560 0 V1000'/><path d='M650 0 V1000'/>      <path d='M740 0 V1000'/><path d='M820 0 V1000'/><path d='M900 0 V1000'/><path d='M980 0 V1000'/>      <path d='M1060 0 V1000'/><path d='M1140 0 V1000'/><path d='M1220 0 V1000'/><path d='M1300 0 V1000'/>      <path d='M1380 0 V1000'/><path d='M1460 0 V1000'/><path d='M1540 0 V1000'/>    </g>    <g stroke-opacity='0.16' stroke-width='2.2'>      <path d='M-40 980 L1640 40'/>      <path d='M-40 120 L1640 940'/>      <path d='M-40 500 L1640 60'/>      <path d='M-40 560 L1640 980'/>      <path d='M400 -40 L1000 1040'/>      <path d='M1100 -40 L600 1040'/>    </g>  </g>  <path d='M -60 240 C 220 180, 320 420, 540 380 S 860 180, 1080 320 S 1420 520, 1660 420'        fill='none' stroke='%23ffffff' stroke-width='22' stroke-linecap='round' opacity='0.14'/>  <path d='M -60 240 C 220 180, 320 420, 540 380 S 860 180, 1080 320 S 1420 520, 1660 420'        fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-dasharray='1 14' opacity='0.3'/>  <g fill='none' stroke='%23ff4302' stroke-opacity='0.62' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='7 6'>    <path d='M120 860 L220 790 L300 790 L390 710 L470 710 L560 640 L650 640 L740 570 L900 570 L980 420'/>    <path d='M1060 930 L1140 860 L1220 860 L1300 790 L1300 710 L1380 640 L1460 570'/>    <path d='M160 500 L300 500 L390 420 L560 420 L650 350 L820 350'/>    <path d='M980 130 L1060 200 L1220 200 L1300 280 L1460 280'/>  </g>  <g fill='none' stroke='%23ff4302' stroke-opacity='0.4' stroke-width='1.3'>    <circle cx='220' cy='790' r='15'/><circle cx='220' cy='790' r='26'/><circle cx='220' cy='790' r='38'/>    <circle cx='740' cy='570' r='15'/><circle cx='740' cy='570' r='26'/>    <circle cx='1220' cy='860' r='15'/><circle cx='1220' cy='860' r='26'/><circle cx='1220' cy='860' r='38'/>    <circle cx='650' cy='350' r='15'/><circle cx='650' cy='350' r='26'/>    <circle cx='1220' cy='200' r='15'/><circle cx='1220' cy='200' r='26'/>  </g>  <g fill='none' stroke='%23ffffff' stroke-opacity='0.5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'>    <path d='M220 790 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='220' cy='773' r='2.8'/>    <path d='M740 570 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='740' cy='553' r='2.8'/>    <path d='M1220 860 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='1220' cy='843' r='2.8'/>    <path d='M650 350 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='650' cy='333' r='2.8'/>    <path d='M1220 200 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='1220' cy='183' r='2.8'/>    <path d='M980 420 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='980' cy='403' r='2.8'/>  </g>  <g fill='%23ffffff' fill-opacity='0.035'>    <rect x='170' y='110' width='90' height='60' rx='4'/>    <rect x='480' y='470' width='110' height='70' rx='4'/>    <rect x='900' y='650' width='90' height='60' rx='4'/>    <rect x='1240' y='380' width='100' height='65' rx='4'/>    <rect x='60' y='620' width='80' height='55' rx='4'/>    <rect x='1380' y='780' width='95' height='60' rx='4'/>  </g></svg>\");\n            background-size: cover;\n            background-position: center;\n            background-repeat: no-repeat;\n            font-family: 'Mulish', Arial, sans-serif;\n        }\n\n        .container {\n            width: 360px;\n            background: white;\n            border-radius: 14px;\n            box-shadow: 0 10px 34px rgba(0,0,0,0.28);\n            overflow: hidden;\n        }\n\n        .header {\n            background: var(--teal);\n            padding: 22px 24px 18px;\n            text-align: center;\n        }\n\n        .wordmark {\n            font-weight: 800;\n            font-size: 22px;\n            letter-spacing: 0.5px;\n            margin: 0;\n        }\n        .wordmark .ceara { color: #ffffff; }\n        .wordmark .gps { color: var(--orange); }\n\n        .header p {\n            margin: 6px 0 0;\n            color: #cfe3ea;\n            font-size: 12.5px;\n            font-weight: 600;\n            letter-spacing: 0.3px;\n            text-transform: uppercase;\n        }\n\n        .body {\n            padding: 26px 24px 28px;\n        }\n\n        input {\n            width: 100%;\n            box-sizing: border-box;\n            padding: 13px 14px;\n            font-size: 15px;\n            font-family: 'Mulish', sans-serif;\n            border: 1.5px solid #d8d8d8;\n            border-radius: 8px;\n            margin-bottom: 16px;\n            transition: border-color .15s;\n        }\n        input:focus {\n            outline: none;\n            border-color: var(--teal);\n        }\n\n        button {\n            width: 100%;\n            border: none;\n            background: var(--orange);\n            color: white;\n            padding: 14px;\n            font-size: 16px;\n            font-weight: 800;\n            font-family: 'Mulish', sans-serif;\n            letter-spacing: 0.4px;\n            border-radius: 8px;\n            cursor: pointer;\n            transition: background .15s;\n        }\n        button:hover { background: #e03b00; }\n        button:disabled { background: #bbb; cursor: not-allowed; }\n\n        #status {\n            text-align: center;\n            margin-top: 16px;\n            font-size: 14px;\n            font-weight: 600;\n            color: var(--teal);\n            word-break: break-word;\n            line-height: 1.4;\n        }\n    </style>\n</head>\n\n<body>\n\n<div class=\"container\">\n\n    <div class=\"header\">\n        <p class=\"wordmark\"><span class=\"ceara\">CEARA</span><span class=\"gps\">GPS</span></p>\n        <p>Desbloqueio Manual</p>\n    </div>\n\n    <div class=\"body\">\n        <input\n            type=\"text\"\n            id=\"conta\"\n            placeholder=\"Conta do cliente na Protrack\"\n        >\n\n        <button id=\"btnDesbloquear\" onclick=\"desbloquear()\">\n            DESBLOQUEAR\n        </button>\n\n        <div id=\"status\"></div>\n    </div>\n\n</div>\n\n<script>\n\nasync function desbloquear() {\n\n    const conta = document.getElementById(\"conta\").value.trim();\n    const status = document.getElementById(\"status\");\n    const botao = document.getElementById(\"btnDesbloquear\");\n\n    if (!conta) {\n        status.innerHTML = \"⚠️ Informe a conta do cliente.\";\n        return;\n    }\n\n    botao.disabled = true;\n    status.innerHTML = \"⏳ Processando desbloqueio...\";\n\n    try {\n\n        const resposta = await fetch(\n            \"https://n8n.exemplo.com/webhook/desbloqueiomanual\",\n            {\n                method: \"POST\",\n                headers: {\n                    \"Content-Type\": \"application/json\"\n                },\n                body: JSON.stringify({\n                    conta: conta\n                })\n            }\n        );\n\n        const dados = await resposta.json().catch(() => null);\n\n        if (dados && dados.sucesso) {\n\n            status.innerHTML = \"✅ \" + (dados.mensagem || \"Desbloqueado com sucesso.\") + \"<br>conta \" + conta;\n\n        } else if (dados) {\n\n            status.innerHTML = \"❌ \" + (dados.mensagem || \"Erro desconhecido.\");\n\n        } else {\n\n            status.innerHTML = \"❌ Resposta inesperada do servidor (HTTP \" + resposta.status + \").\";\n\n        }\n\n    } catch (erro) {\n\n        console.error(erro);\n        status.innerHTML = \"❌ Erro de conexão com o webhook.\";\n\n    }\n\n    botao.disabled = false;\n}\n\n</script>\n\n</body>\n</html>\n"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        -192
+      ],
+      "id": "dca827fd-6f69-4254-885c-ae27cee79d44",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nif (r.code === 10012) $getWorkflowStaticData('global').pt_token = null;\nlet sucesso = false;\nlet mensagem;\n\nif (r.error) {\n  const erro = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));\n  mensagem = /timeout/i.test(erro)\n    ? 'Timeout: a Protrack demorou demais pra responder. Tente novamente em instantes.'\n    : 'Falha de conexão com a Protrack: ' + erro;\n} else if (r.code === 0) {\n  sucesso = true;\n  mensagem = 'Operação realizada com sucesso.';\n} else if (r.code === 10007) {\n  mensagem = 'Conta não encontrada na Protrack (identificador errado — pode não ser o CPF, confira o usuário customizado).';\n} else if (r.code === 10009) {\n  mensagem = 'Limite de requisições da Protrack (TPS) excedido. Aguarde alguns segundos e tente de novo.';\n} else if (r.code === 10012) {\n  mensagem = 'Token de acesso inválido ou expirado (pode ter sido invalidado por outro login simultâneo).';\n} else if (r.code === 10014) {\n  mensagem = 'Erro de horário: relógio do servidor dessincronizado com a Protrack.';\n} else {\n  mensagem = r.message || JSON.stringify(r);\n}\n\nreturn [{ json: { sucesso, codigo: r.code ?? null, mensagem } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        -208
+      ],
+      "id": "3d5ffd97-81d3-4aca-b6d3-4727f39237f8",
+      "name": "Montar Resposta"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1264,
+        -208
+      ],
+      "id": "4e2c18ff-c677-47ea-96e0-9f567f88ea99",
+      "name": "Responder Resultado"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "96013b5c-05fb-4174-8ea4-1a89f343b367",
+              "leftValue": "={{ $json.code }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        512,
+        -144
+      ],
+      "id": "9bb460da-2b53-42c0-a152-b1b4921a19d8",
+      "name": "Login OK?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nlet mensagem;\n\nif (r.error) {\n  const erro = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));\n  mensagem = /timeout/i.test(erro)\n    ? 'Timeout: a Protrack demorou demais pra responder no login. Tente novamente em instantes.'\n    : 'Falha de conexão ao fazer login na Protrack: ' + erro;\n} else if (r.code === 10009) {\n  mensagem = 'Limite de requisições da Protrack (TPS) excedido durante o login. Aguarde alguns segundos e tente de novo.';\n} else if (r.code === 10014) {\n  mensagem = 'Erro de horário: relógio do servidor dessincronizado com a Protrack.';\n} else {\n  mensagem = r.message || JSON.stringify(r);\n}\n\nreturn [{ json: { sucesso: false, etapa: 'login', codigo: r.code ?? null, mensagem } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -64
+      ],
+      "id": "484b3efd-333b-469d-93a6-1450d2e664c0",
+      "name": "Montar Resposta Erro Login"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        880,
+        -64
+      ],
+      "id": "b8c54604-05d1-48d4-a0d1-f1104988b7a7",
+      "name": "Responder Erro Login"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a279c6a-08b5-468c-98c7-54c532e13946",
+              "leftValue": "={{ $json.usar_cache }}",
+              "rightValue": "={{ Date.now() }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        0
+      ],
+      "id": "ffdad39e-8112-4af5-b5cd-c2f51de1a0ff",
+      "name": "Token Valido no Cache?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nreturn [{ json: { code: 0, record: { access_token: staticData.pt_token } } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -48
+      ],
+      "id": "cc8d023d-acf4-4b0e-96ea-760420280759",
+      "name": "Usar Token do Cache"
+    },
+    {
+      "parameters": {
+        "jsCode": "const login = $input.first().json;\nif (login.code === 0 && login.record) {\n  const staticData = $getWorkflowStaticData('global');\n  staticData.pt_token = login.record.access_token;\n  staticData.pt_expires_at = Date.now() + 90 * 60 * 1000;\n}\nreturn [{ json: login }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        80
+      ],
+      "id": "36f91a7c-cb6a-4409-ab95-506faa75aad3",
+      "name": "Salvar Token no Cache"
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst agora = Date.now();\nconst expiraEm = staticData.pt_expires_at || 0;\nconst temToken = !!staticData.pt_token;\nconst usar_cache = temToken && expiraEm > agora;\n\nreturn [{\n  json: {\n    usar_cache,\n    tem_token: temToken,\n    expira_em: expiraEm,\n    agora,\n    minutos_restantes: expiraEm > agora ? Math.round((expiraEm - agora) / 60000) : 0\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        0
+      ],
+      "id": "206780b4-24a3-4870-81c4-1c80f87e463d",
+      "name": "Verificar Cache"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d172708-be67-47a3-a5a6-3a8ea6a95096",
+              "leftValue": "={{ $json.code === 10012 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        -208
+      ],
+      "id": "ae3f7d1b-42ff-46d6-9f80-f9733cf3b3e4",
+      "name": "Token Invalido?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Token do cache foi invalidado por outro login (code 10012).\n// Limpa o cache e gera assinatura nova para um unico relogin.\nconst staticData = $getWorkflowStaticData('global');\nstaticData.pt_token = null;\nstaticData.pt_expires_at = 0;\nconst crypto = require('crypto');\nconst account = $env.PROTRACK_ACCOUNT;\nconst password = $env.PROTRACK_PASSWORD;\nconst time = Math.floor(Date.now()/1000).toString();\nconst md5pass = crypto.createHash('md5').update(password).digest('hex');\nconst signature = crypto.createHash('md5').update(md5pass+time).digest('hex');\nconst d = $('Dados (edite aqui)').first().json;\nreturn [{ json: { pt_account: account, pt_time: time, pt_signature: signature, conta: d.conta, acao: d.acao } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        96
+      ],
+      "id": "c49c952a-8f4a-4101-94bf-753f82b1c7bc",
+      "name": "Gerar Assinatura Retry"
+    },
+    {
+      "parameters": {
+        "url": "https://api.protrack365.com/api/authorization",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "account",
+              "value": "={{ $json.pt_account }}"
+            },
+            {
+              "name": "time",
+              "value": "={{ $json.pt_time }}"
+            },
+            {
+              "name": "signature",
+              "value": "={{ $json.pt_signature }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Connection",
+              "value": "close"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "4a2d309d-8b2c-40cd-8106-57d38a30771a",
+      "name": "Login Protrack Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const login = $input.first().json;\nif (login.code === 0 && login.record) {\n  const staticData = $getWorkflowStaticData('global');\n  staticData.pt_token = login.record.access_token;\n  staticData.pt_expires_at = Date.now() + 90 * 60 * 1000;\n}\nreturn [{ json: login }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        96
+      ],
+      "id": "d80fe753-2f1b-4b75-8f49-a04c3d368ce0",
+      "name": "Salvar Token Retry"
+    },
+    {
+      "parameters": {
+        "jsCode": "const login = $input.first().json;\nconst dados = $('Dados (edite aqui)').first().json;\nconst endpoint = dados.acao === 'bloquear' ? 'block' : 'unblock';\nreturn [{ json: {\n  url: `https://api.protrack365.com/api/user/${endpoint}`,\n  access_token: login.record ? login.record.access_token : null,\n  conta: dados.conta,\n  acao: dados.acao\n} }];"
+      },
+      "id": "a2135aeb-7933-4b02-b738-6c1abb9098c7",
+      "name": "Montar Acao Retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "access_token",
+              "value": "={{ $json.access_token }}"
+            },
+            {
+              "name": "account",
+              "value": "={{ $json.conta }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Connection",
+              "value": "close"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "64119ee6-017e-4ac6-b2da-584f60d5bf95",
+      "name": "Acao Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "path": "protrack-token",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        704
+      ],
+      "id": "71daa23d-7f23-4e52-8d26-a2304325d203",
+      "webhookId": "SUBSTITUIR-POR-ID-PROPRIO",
+      "name": "Webhook Token",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Devolve o token que ESTE workflow ja tem em cache, para o fluxo de bloqueio reusar.\n// Nao loga, nao chama a Protrack: so le o que esta guardado aqui.\nconst sd = $getWorkflowStaticData('global');\nconst agora = Date.now();\nconst idade = sd.pt_expires_at ? (sd.pt_expires_at - agora) / 60000 : null;\nif (sd.pt_token && sd.pt_expires_at && sd.pt_expires_at > agora) {\n  return [{ json: { record: { access_token: sd.pt_token },\n                    origem: 'painel', minutos_restantes: Math.round(idade) } }];\n}\nreturn [{ json: { record: null, origem: 'painel', motivo: 'sem token valido no painel' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        704
+      ],
+      "id": "85a4626e-018a-4c9a-af88-101f16376347",
+      "name": "Servir Token"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -240,
+        704
+      ],
+      "id": "d680ddb8-0b7c-4502-8c1d-b8106373faf1",
+      "name": "Responder Token",
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Dados (edite aqui)": {
+      "main": [
+        [
+          {
+            "node": "Verificar Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Assinatura": {
+      "main": [
+        [
+          {
+            "node": "Login Protrack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login Protrack": {
+      "main": [
+        [
+          {
+            "node": "Salvar Token no Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Acao": {
+      "main": [
+        [
+          {
+            "node": "Bloquear ou Desbloquear",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Dados (edite aqui)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bloquear ou Desbloquear": {
+      "main": [
+        [
+          {
+            "node": "Token Invalido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Resposta": {
+      "main": [
+        [
+          {
+            "node": "Responder Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login OK?": {
+      "main": [
+        [
+          {
+            "node": "Montar Acao",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Resposta Erro Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Resposta Erro Login": {
+      "main": [
+        [
+          {
+            "node": "Responder Erro Login",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Valido no Cache?": {
+      "main": [
+        [
+          {
+            "node": "Usar Token do Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gerar Assinatura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Usar Token do Cache": {
+      "main": [
+        [
+          {
+            "node": "Login OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Token no Cache": {
+      "main": [
+        [
+          {
+            "node": "Login OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Cache": {
+      "main": [
+        [
+          {
+            "node": "Token Valido no Cache?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Invalido?": {
+      "main": [
+        [
+          {
+            "node": "Gerar Assinatura Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Assinatura Retry": {
+      "main": [
+        [
+          {
+            "node": "Login Protrack Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login Protrack Retry": {
+      "main": [
+        [
+          {
+            "node": "Salvar Token Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Token Retry": {
+      "main": [
+        [
+          {
+            "node": "Montar Acao Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Acao Retry": {
+      "main": [
+        [
+          {
+            "node": "Acao Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acao Retry": {
+      "main": [
+        [
+          {
+            "node": "Montar Resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Token": {
+      "main": [
+        [
+          {
+            "node": "Servir Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Servir Token": {
+      "main": [
+        [
+          {
+            "node": "Responder Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": {
+    "global": {
+      "pt_token": "A1793366200141144fdf35b45189e57a27ab892a9770f9",
+      "pt_expires_at": 1793371600615
+    }
+  },
+  "activeVersionId": "90903a84-6785-4506-ba9e-faaf3345dc24",
+  "versionCounter": 1085,
+  "triggerCount": 2,
+  "activeVersion": {
+    "updatedAt": "2026-10-26T18:36:11.223Z",
+    "createdAt": "2026-10-26T18:36:11.223Z",
+    "versionId": "90903a84-6785-4506-ba9e-faaf3345dc24",
+    "workflowId": "c7dmeMLWR7iV8yFE",
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f1",
+                "name": "conta",
+                "value": "={{ $json.body.conta }}",
+                "type": "string"
+              },
+              {
+                "id": "f2",
+                "name": "acao",
+                "value": "desbloquear",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "f3342a43-cf79-494b-ad92-607eb825da18",
+        "name": "Dados (edite aqui)",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -336,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nconst account = $env.PROTRACK_ACCOUNT;\nconst password = $env.PROTRACK_PASSWORD;\nconst time = Math.floor(Date.now()/1000).toString();\nconst md5pass = crypto.createHash('md5').update(password).digest('hex');\nconst signature = crypto.createHash('md5').update(md5pass+time).digest('hex');\nconst d = $input.first().json;\nreturn [{ json: { pt_account: account, pt_time: time, pt_signature: signature, conta: d.conta, acao: d.acao } }];"
+        },
+        "id": "2bdd61fe-7af8-42b7-a60d-208c87566ecd",
+        "name": "Gerar Assinatura",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          304,
+          80
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.protrack365.com/api/authorization",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "account",
+                "value": "={{ $json.pt_account }}"
+              },
+              {
+                "name": "time",
+                "value": "={{ $json.pt_time }}"
+              },
+              {
+                "name": "signature",
+                "value": "={{ $json.pt_signature }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Connection",
+                "value": "close"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "1a551f66-5860-42a7-8c9f-ca9286a7c1e7",
+        "name": "Login Protrack",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          512,
+          80
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 3000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const login = $input.first().json;\nconst dados = $('Dados (edite aqui)').first().json;\nconst endpoint = dados.acao === 'bloquear' ? 'block' : 'unblock';\nreturn [{ json: {\n  url: `https://api.protrack365.com/api/user/${endpoint}`,\n  access_token: login.record ? login.record.access_token : null,\n  conta: dados.conta,\n  acao: dados.acao\n} }];"
+        },
+        "id": "e28c8dd1-1ecb-40a5-b71c-7b7f7f664ef2",
+        "name": "Montar Acao",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          704,
+          -208
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.url }}",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "access_token",
+                "value": "={{ $json.access_token }}"
+              },
+              {
+                "name": "account",
+                "value": "={{ $json.conta }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Connection",
+                "value": "close"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "173529e9-b596-4cd2-afd6-ba9e99647662",
+        "name": "Bloquear ou Desbloquear",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          880,
+          -208
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 3000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "desbloqueiomanual",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -560,
+          0
+        ],
+        "id": "04663640-8ae5-4579-928e-4db5b839e2a4",
+        "name": "Webhook",
+        "webhookId": "faa62a0e-26c4-4321-b787-31bd67b1d3a5"
+      },
+      {
+        "parameters": {
+          "path": "desbloqueioinside",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -560,
+          -192
+        ],
+        "id": "2984efeb-7ebe-4497-a759-fd9f95999b87",
+        "name": "Webhook1",
+        "webhookId": "8a621144-2c08-43e1-aef1-2adf41080f1a"
+      },
+      {
+        "parameters": {
+          "respondWith": "text",
+          "responseBody": "={{ $json.html }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          80,
+          -192
+        ],
+        "id": "4cdc51a5-24f3-44eb-8441-4450c2115503",
+        "name": "Respond to Webhook"
+      },
+      {
+        "parameters": {
+          "html": "<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Desbloqueio Manual</title>\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <link href=\"https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800&display=swap\" rel=\"stylesheet\">\n\n    <style>\n        :root {\n            --teal: #00465d;\n            --orange: #ff4302;\n            --gray: #eeeeee;\n        }\n\n        * { box-sizing: border-box; }\n\n        body {\n            margin: 0;\n            min-height: 100vh;\n            display: flex;\n            justify-content: center;\n            align-items: center;\n            background-color: #00465d;\n            background-image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1600' height='1000' viewBox='0 0 1600 1000'>  <g fill='none' stroke='%23ffffff'>    <g stroke-opacity='0.08' stroke-width='1'>      <path d='M0 60 H1600'/><path d='M0 130 H1600'/><path d='M0 200 H1600'/><path d='M0 280 H1600'/>      <path d='M0 350 H1600'/><path d='M0 420 H1600'/><path d='M0 500 H1600'/><path d='M0 570 H1600'/>      <path d='M0 640 H1600'/><path d='M0 710 H1600'/><path d='M0 790 H1600'/><path d='M0 860 H1600'/><path d='M0 930 H1600'/>      <path d='M60 0 V1000'/><path d='M140 0 V1000'/><path d='M220 0 V1000'/><path d='M300 0 V1000'/>      <path d='M390 0 V1000'/><path d='M470 0 V1000'/><path d='M560 0 V1000'/><path d='M650 0 V1000'/>      <path d='M740 0 V1000'/><path d='M820 0 V1000'/><path d='M900 0 V1000'/><path d='M980 0 V1000'/>      <path d='M1060 0 V1000'/><path d='M1140 0 V1000'/><path d='M1220 0 V1000'/><path d='M1300 0 V1000'/>      <path d='M1380 0 V1000'/><path d='M1460 0 V1000'/><path d='M1540 0 V1000'/>    </g>    <g stroke-opacity='0.16' stroke-width='2.2'>      <path d='M-40 980 L1640 40'/>      <path d='M-40 120 L1640 940'/>      <path d='M-40 500 L1640 60'/>      <path d='M-40 560 L1640 980'/>      <path d='M400 -40 L1000 1040'/>      <path d='M1100 -40 L600 1040'/>    </g>  </g>  <path d='M -60 240 C 220 180, 320 420, 540 380 S 860 180, 1080 320 S 1420 520, 1660 420'        fill='none' stroke='%23ffffff' stroke-width='22' stroke-linecap='round' opacity='0.14'/>  <path d='M -60 240 C 220 180, 320 420, 540 380 S 860 180, 1080 320 S 1420 520, 1660 420'        fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-dasharray='1 14' opacity='0.3'/>  <g fill='none' stroke='%23ff4302' stroke-opacity='0.62' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' stroke-dasharray='7 6'>    <path d='M120 860 L220 790 L300 790 L390 710 L470 710 L560 640 L650 640 L740 570 L900 570 L980 420'/>    <path d='M1060 930 L1140 860 L1220 860 L1300 790 L1300 710 L1380 640 L1460 570'/>    <path d='M160 500 L300 500 L390 420 L560 420 L650 350 L820 350'/>    <path d='M980 130 L1060 200 L1220 200 L1300 280 L1460 280'/>  </g>  <g fill='none' stroke='%23ff4302' stroke-opacity='0.4' stroke-width='1.3'>    <circle cx='220' cy='790' r='15'/><circle cx='220' cy='790' r='26'/><circle cx='220' cy='790' r='38'/>    <circle cx='740' cy='570' r='15'/><circle cx='740' cy='570' r='26'/>    <circle cx='1220' cy='860' r='15'/><circle cx='1220' cy='860' r='26'/><circle cx='1220' cy='860' r='38'/>    <circle cx='650' cy='350' r='15'/><circle cx='650' cy='350' r='26'/>    <circle cx='1220' cy='200' r='15'/><circle cx='1220' cy='200' r='26'/>  </g>  <g fill='none' stroke='%23ffffff' stroke-opacity='0.5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'>    <path d='M220 790 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='220' cy='773' r='2.8'/>    <path d='M740 570 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='740' cy='553' r='2.8'/>    <path d='M1220 860 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='1220' cy='843' r='2.8'/>    <path d='M650 350 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='650' cy='333' r='2.8'/>    <path d='M1220 200 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='1220' cy='183' r='2.8'/>    <path d='M980 420 c-6 -7 -9 -13 -9 -19 a9 9 0 0 1 18 0 c0 6 -3 12 -9 19 z'/><circle cx='980' cy='403' r='2.8'/>  </g>  <g fill='%23ffffff' fill-opacity='0.035'>    <rect x='170' y='110' width='90' height='60' rx='4'/>    <rect x='480' y='470' width='110' height='70' rx='4'/>    <rect x='900' y='650' width='90' height='60' rx='4'/>    <rect x='1240' y='380' width='100' height='65' rx='4'/>    <rect x='60' y='620' width='80' height='55' rx='4'/>    <rect x='1380' y='780' width='95' height='60' rx='4'/>  </g></svg>\");\n            background-size: cover;\n            background-position: center;\n            background-repeat: no-repeat;\n            font-family: 'Mulish', Arial, sans-serif;\n        }\n\n        .container {\n            width: 360px;\n            background: white;\n            border-radius: 14px;\n            box-shadow: 0 10px 34px rgba(0,0,0,0.28);\n            overflow: hidden;\n        }\n\n        .header {\n            background: var(--teal);\n            padding: 22px 24px 18px;\n            text-align: center;\n        }\n\n        .wordmark {\n            font-weight: 800;\n            font-size: 22px;\n            letter-spacing: 0.5px;\n            margin: 0;\n        }\n        .wordmark .ceara { color: #ffffff; }\n        .wordmark .gps { color: var(--orange); }\n\n        .header p {\n            margin: 6px 0 0;\n            color: #cfe3ea;\n            font-size: 12.5px;\n            font-weight: 600;\n            letter-spacing: 0.3px;\n            text-transform: uppercase;\n        }\n\n        .body {\n            padding: 26px 24px 28px;\n        }\n\n        input {\n            width: 100%;\n            box-sizing: border-box;\n            padding: 13px 14px;\n            font-size: 15px;\n            font-family: 'Mulish', sans-serif;\n            border: 1.5px solid #d8d8d8;\n            border-radius: 8px;\n            margin-bottom: 16px;\n            transition: border-color .15s;\n        }\n        input:focus {\n            outline: none;\n            border-color: var(--teal);\n        }\n\n        button {\n            width: 100%;\n            border: none;\n            background: var(--orange);\n            color: white;\n            padding: 14px;\n            font-size: 16px;\n            font-weight: 800;\n            font-family: 'Mulish', sans-serif;\n            letter-spacing: 0.4px;\n            border-radius: 8px;\n            cursor: pointer;\n            transition: background .15s;\n        }\n        button:hover { background: #e03b00; }\n        button:disabled { background: #bbb; cursor: not-allowed; }\n\n        #status {\n            text-align: center;\n            margin-top: 16px;\n            font-size: 14px;\n            font-weight: 600;\n            color: var(--teal);\n            word-break: break-word;\n            line-height: 1.4;\n        }\n    </style>\n</head>\n\n<body>\n\n<div class=\"container\">\n\n    <div class=\"header\">\n        <p class=\"wordmark\"><span class=\"ceara\">CEARA</span><span class=\"gps\">GPS</span></p>\n        <p>Desbloqueio Manual</p>\n    </div>\n\n    <div class=\"body\">\n        <input\n            type=\"text\"\n            id=\"conta\"\n            placeholder=\"Conta do cliente na Protrack\"\n        >\n\n        <button id=\"btnDesbloquear\" onclick=\"desbloquear()\">\n            DESBLOQUEAR\n        </button>\n\n        <div id=\"status\"></div>\n    </div>\n\n</div>\n\n<script>\n\nasync function desbloquear() {\n\n    const conta = document.getElementById(\"conta\").value.trim();\n    const status = document.getElementById(\"status\");\n    const botao = document.getElementById(\"btnDesbloquear\");\n\n    if (!conta) {\n        status.innerHTML = \"⚠️ Informe a conta do cliente.\";\n        return;\n    }\n\n    botao.disabled = true;\n    status.innerHTML = \"⏳ Processando desbloqueio...\";\n\n    try {\n\n        const resposta = await fetch(\n            \"https://n8n.exemplo.com/webhook/desbloqueiomanual\",\n            {\n                method: \"POST\",\n                headers: {\n                    \"Content-Type\": \"application/json\"\n                },\n                body: JSON.stringify({\n                    conta: conta\n                })\n            }\n        );\n\n        const dados = await resposta.json().catch(() => null);\n\n        if (dados && dados.sucesso) {\n\n            status.innerHTML = \"✅ \" + (dados.mensagem || \"Desbloqueado com sucesso.\") + \"<br>conta \" + conta;\n\n        } else if (dados) {\n\n            status.innerHTML = \"❌ \" + (dados.mensagem || \"Erro desconhecido.\");\n\n        } else {\n\n            status.innerHTML = \"❌ Resposta inesperada do servidor (HTTP \" + resposta.status + \").\";\n\n        }\n\n    } catch (erro) {\n\n        console.error(erro);\n        status.innerHTML = \"❌ Erro de conexão com o webhook.\";\n\n    }\n\n    botao.disabled = false;\n}\n\n</script>\n\n</body>\n</html>\n"
+        },
+        "type": "n8n-nodes-base.html",
+        "typeVersion": 1.2,
+        "position": [
+          -336,
+          -192
+        ],
+        "id": "dca827fd-6f69-4254-885c-ae27cee79d44",
+        "name": "HTML"
+      },
+      {
+        "parameters": {
+          "jsCode": "const r = $input.first().json;\nif (r.code === 10012) $getWorkflowStaticData('global').pt_token = null;\nlet sucesso = false;\nlet mensagem;\n\nif (r.error) {\n  const erro = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));\n  mensagem = /timeout/i.test(erro)\n    ? 'Timeout: a Protrack demorou demais pra responder. Tente novamente em instantes.'\n    : 'Falha de conexão com a Protrack: ' + erro;\n} else if (r.code === 0) {\n  sucesso = true;\n  mensagem = 'Operação realizada com sucesso.';\n} else if (r.code === 10007) {\n  mensagem = 'Conta não encontrada na Protrack (identificador errado — pode não ser o CPF, confira o usuário customizado).';\n} else if (r.code === 10009) {\n  mensagem = 'Limite de requisições da Protrack (TPS) excedido. Aguarde alguns segundos e tente de novo.';\n} else if (r.code === 10012) {\n  mensagem = 'Token de acesso inválido ou expirado (pode ter sido invalidado por outro login simultâneo).';\n} else if (r.code === 10014) {\n  mensagem = 'Erro de horário: relógio do servidor dessincronizado com a Protrack.';\n} else {\n  mensagem = r.message || JSON.stringify(r);\n}\n\nreturn [{ json: { sucesso, codigo: r.code ?? null, mensagem } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1072,
+          -208
+        ],
+        "id": "3d5ffd97-81d3-4aca-b6d3-4727f39237f8",
+        "name": "Montar Resposta"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1264,
+          -208
+        ],
+        "id": "4e2c18ff-c677-47ea-96e0-9f567f88ea99",
+        "name": "Responder Resultado"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "96013b5c-05fb-4174-8ea4-1a89f343b367",
+                "leftValue": "={{ $json.code }}",
+                "rightValue": 0,
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          512,
+          -144
+        ],
+        "id": "9bb460da-2b53-42c0-a152-b1b4921a19d8",
+        "name": "Login OK?"
+      },
+      {
+        "parameters": {
+          "jsCode": "const r = $input.first().json;\nlet mensagem;\n\nif (r.error) {\n  const erro = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));\n  mensagem = /timeout/i.test(erro)\n    ? 'Timeout: a Protrack demorou demais pra responder no login. Tente novamente em instantes.'\n    : 'Falha de conexão ao fazer login na Protrack: ' + erro;\n} else if (r.code === 10009) {\n  mensagem = 'Limite de requisições da Protrack (TPS) excedido durante o login. Aguarde alguns segundos e tente de novo.';\n} else if (r.code === 10014) {\n  mensagem = 'Erro de horário: relógio do servidor dessincronizado com a Protrack.';\n} else {\n  mensagem = r.message || JSON.stringify(r);\n}\n\nreturn [{ json: { sucesso: false, etapa: 'login', codigo: r.code ?? null, mensagem } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          704,
+          -64
+        ],
+        "id": "484b3efd-333b-469d-93a6-1450d2e664c0",
+        "name": "Montar Resposta Erro Login"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          880,
+          -64
+        ],
+        "id": "b8c54604-05d1-48d4-a0d1-f1104988b7a7",
+        "name": "Responder Erro Login"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "9a279c6a-08b5-468c-98c7-54c532e13946",
+                "leftValue": "={{ $json.usar_cache }}",
+                "rightValue": "={{ Date.now() }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          80,
+          0
+        ],
+        "id": "ffdad39e-8112-4af5-b5cd-c2f51de1a0ff",
+        "name": "Token Valido no Cache?"
+      },
+      {
+        "parameters": {
+          "jsCode": "const staticData = $getWorkflowStaticData('global');\nreturn [{ json: { code: 0, record: { access_token: staticData.pt_token } } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          304,
+          -48
+        ],
+        "id": "cc8d023d-acf4-4b0e-96ea-760420280759",
+        "name": "Usar Token do Cache"
+      },
+      {
+        "parameters": {
+          "jsCode": "const login = $input.first().json;\nif (login.code === 0 && login.record) {\n  const staticData = $getWorkflowStaticData('global');\n  staticData.pt_token = login.record.access_token;\n  staticData.pt_expires_at = Date.now() + 90 * 60 * 1000;\n}\nreturn [{ json: login }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          704,
+          80
+        ],
+        "id": "36f91a7c-cb6a-4409-ab95-506faa75aad3",
+        "name": "Salvar Token no Cache"
+      },
+      {
+        "parameters": {
+          "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst agora = Date.now();\nconst expiraEm = staticData.pt_expires_at || 0;\nconst temToken = !!staticData.pt_token;\nconst usar_cache = temToken && expiraEm > agora;\n\nreturn [{\n  json: {\n    usar_cache,\n    tem_token: temToken,\n    expira_em: expiraEm,\n    agora,\n    minutos_restantes: expiraEm > agora ? Math.round((expiraEm - agora) / 60000) : 0\n  }\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -128,
+          0
+        ],
+        "id": "206780b4-24a3-4870-81c4-1c80f87e463d",
+        "name": "Verificar Cache"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "9d172708-be67-47a3-a5a6-3a8ea6a95096",
+                "leftValue": "={{ $json.code === 10012 }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          1072,
+          -208
+        ],
+        "id": "ae3f7d1b-42ff-46d6-9f80-f9733cf3b3e4",
+        "name": "Token Invalido?"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Token do cache foi invalidado por outro login (code 10012).\n// Limpa o cache e gera assinatura nova para um unico relogin.\nconst staticData = $getWorkflowStaticData('global');\nstaticData.pt_token = null;\nstaticData.pt_expires_at = 0;\nconst crypto = require('crypto');\nconst account = $env.PROTRACK_ACCOUNT;\nconst password = $env.PROTRACK_PASSWORD;\nconst time = Math.floor(Date.now()/1000).toString();\nconst md5pass = crypto.createHash('md5').update(password).digest('hex');\nconst signature = crypto.createHash('md5').update(md5pass+time).digest('hex');\nconst d = $('Dados (edite aqui)').first().json;\nreturn [{ json: { pt_account: account, pt_time: time, pt_signature: signature, conta: d.conta, acao: d.acao } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1248,
+          96
+        ],
+        "id": "c49c952a-8f4a-4101-94bf-753f82b1c7bc",
+        "name": "Gerar Assinatura Retry"
+      },
+      {
+        "parameters": {
+          "url": "https://api.protrack365.com/api/authorization",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "account",
+                "value": "={{ $json.pt_account }}"
+              },
+              {
+                "name": "time",
+                "value": "={{ $json.pt_time }}"
+              },
+              {
+                "name": "signature",
+                "value": "={{ $json.pt_signature }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Connection",
+                "value": "close"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "4a2d309d-8b2c-40cd-8106-57d38a30771a",
+        "name": "Login Protrack Retry",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1424,
+          96
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 3000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const login = $input.first().json;\nif (login.code === 0 && login.record) {\n  const staticData = $getWorkflowStaticData('global');\n  staticData.pt_token = login.record.access_token;\n  staticData.pt_expires_at = Date.now() + 90 * 60 * 1000;\n}\nreturn [{ json: login }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1600,
+          96
+        ],
+        "id": "d80fe753-2f1b-4b75-8f49-a04c3d368ce0",
+        "name": "Salvar Token Retry"
+      },
+      {
+        "parameters": {
+          "jsCode": "const login = $input.first().json;\nconst dados = $('Dados (edite aqui)').first().json;\nconst endpoint = dados.acao === 'bloquear' ? 'block' : 'unblock';\nreturn [{ json: {\n  url: `https://api.protrack365.com/api/user/${endpoint}`,\n  access_token: login.record ? login.record.access_token : null,\n  conta: dados.conta,\n  acao: dados.acao\n} }];"
+        },
+        "id": "a2135aeb-7933-4b02-b738-6c1abb9098c7",
+        "name": "Montar Acao Retry",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1792,
+          96
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.url }}",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "access_token",
+                "value": "={{ $json.access_token }}"
+              },
+              {
+                "name": "account",
+                "value": "={{ $json.conta }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Connection",
+                "value": "close"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "64119ee6-017e-4ac6-b2da-584f60d5bf95",
+        "name": "Acao Retry",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1968,
+          96
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 3000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "path": "protrack-token",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -608,
+          704
+        ],
+        "id": "71daa23d-7f23-4e52-8d26-a2304325d203",
+        "webhookId": "06d2e466-4a07-43e5-88c2-d702d9499e82",
+        "name": "Webhook Token",
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "jsCode": "// Devolve o token que ESTE workflow ja tem em cache, para o fluxo de bloqueio reusar.\n// Nao loga, nao chama a Protrack: so le o que esta guardado aqui.\nconst sd = $getWorkflowStaticData('global');\nconst agora = Date.now();\nconst idade = sd.pt_expires_at ? (sd.pt_expires_at - agora) / 60000 : null;\nif (sd.pt_token && sd.pt_expires_at && sd.pt_expires_at > agora) {\n  return [{ json: { record: { access_token: sd.pt_token },\n                    origem: 'painel', minutos_restantes: Math.round(idade) } }];\n}\nreturn [{ json: { record: null, origem: 'painel', motivo: 'sem token valido no painel' } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -416,
+          704
+        ],
+        "id": "85a4626e-018a-4c9a-af88-101f16376347",
+        "name": "Servir Token"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          -240,
+          704
+        ],
+        "id": "d680ddb8-0b7c-4502-8c1d-b8106373faf1",
+        "name": "Responder Token",
+        "disabled": true
+      }
+    ],
+    "connections": {
+      "Dados (edite aqui)": {
+        "main": [
+          [
+            {
+              "node": "Verificar Cache",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gerar Assinatura": {
+        "main": [
+          [
+            {
+              "node": "Login Protrack",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Login Protrack": {
+        "main": [
+          [
+            {
+              "node": "Salvar Token no Cache",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar Acao": {
+        "main": [
+          [
+            {
+              "node": "Bloquear ou Desbloquear",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook1": {
+        "main": [
+          [
+            {
+              "node": "HTML",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTML": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Dados (edite aqui)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Bloquear ou Desbloquear": {
+        "main": [
+          [
+            {
+              "node": "Token Invalido?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar Resposta": {
+        "main": [
+          [
+            {
+              "node": "Responder Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Login OK?": {
+        "main": [
+          [
+            {
+              "node": "Montar Acao",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Montar Resposta Erro Login",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar Resposta Erro Login": {
+        "main": [
+          [
+            {
+              "node": "Responder Erro Login",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Token Valido no Cache?": {
+        "main": [
+          [
+            {
+              "node": "Usar Token do Cache",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Gerar Assinatura",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Usar Token do Cache": {
+        "main": [
+          [
+            {
+              "node": "Login OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar Token no Cache": {
+        "main": [
+          [
+            {
+              "node": "Login OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verificar Cache": {
+        "main": [
+          [
+            {
+              "node": "Token Valido no Cache?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Token Invalido?": {
+        "main": [
+          [
+            {
+              "node": "Gerar Assinatura Retry",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Montar Resposta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gerar Assinatura Retry": {
+        "main": [
+          [
+            {
+              "node": "Login Protrack Retry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Login Protrack Retry": {
+        "main": [
+          [
+            {
+              "node": "Salvar Token Retry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Salvar Token Retry": {
+        "main": [
+          [
+            {
+              "node": "Montar Acao Retry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Montar Acao Retry": {
+        "main": [
+          [
+            {
+              "node": "Acao Retry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Acao Retry": {
+        "main": [
+          [
+            {
+              "node": "Montar Resposta",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook Token": {
+        "main": [
+          [
+            {
+              "node": "Servir Token",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Servir Token": {
+        "main": [
+          [
+            {
+              "node": "Responder Token",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Setor de TI",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-10-26T18:36:11.539Z",
+        "id": 17569,
+        "workflowId": "c7dmeMLWR7iV8yFE",
+        "versionId": "90903a84-6785-4506-ba9e-faaf3345dc24",
+        "event": "deactivated",
+        "userId": "be49a18c-c103-4326-8421-d10a7b7c9f1d"
+      },
+      {
+        "createdAt": "2026-10-26T18:36:11.559Z",
+        "id": 17570,
+        "workflowId": "c7dmeMLWR7iV8yFE",
+        "versionId": "90903a84-6785-4506-ba9e-faaf3345dc24",
+        "event": "activated",
+        "userId": "be49a18c-c103-4326-8421-d10a7b7c9f1d"
+      }
+    ]
+  }
+}
